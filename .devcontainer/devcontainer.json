@@ -1,0 +1,68 @@
+{
+  "name": "STAND Fullstack Development",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "frontend",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.flake8",
+        "ms-python.black-formatter",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "ms-vscode.vscode-json",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "ms-vscode.vscode-eslint",
+        "dsznajder.es7-react-js-snippets",
+        "ms-python.pylint",
+        "ms-toolsai.jupyter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.formatting.provider": "black",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": true
+        },
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "emmet.includeLanguages": {
+          "javascript": "javascriptreact"
+        }
+      }
+    }
+  },
+
+  "forwardPorts": [5173, 8000],
+  "portsAttributes": {
+    "5173": {
+      "label": "Frontend (React + Vite)",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "Backend (FastAPI)",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "postCreateCommand": "echo '🚀 Setting up development environment...' && npm install && echo '✅ Development environment ready!'",
+  "postStartCommand": "echo '🔄 Starting services...' && docker-compose up -d && echo '✅ Services started!'",
+
+  "mounts": [
+    "source=${localWorkspaceFolder}/backend,target=/app/backend,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/frontend,target=/app/frontend,type=bind,consistency=cached"
+  ],
+
+  "remoteUser": "node"
+}

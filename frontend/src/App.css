@@ -1,0 +1,381 @@
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 30%, #21262d 70%, #30363d 100%);
+  padding: 0;
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Home Screen Styles */
+.home-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 30%, #21262d 70%, #30363d 100%);
+  z-index: 1;
+}
+
+.home-screen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(88, 166, 255, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(124, 58, 237, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.logo-section {
+  margin-bottom: 4rem;
+}
+
+.logo h1 {
+  font-size: 4rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(45deg, #58a6ff, #7c3aed, #06b6d4, #10b981);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease-in-out infinite;
+  text-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
+}
+
+.logo p {
+  font-size: 1.5rem;
+  margin: 1rem 0 0 0;
+  opacity: 0.9;
+  color: #c9d1d9;
+  font-weight: 300;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.start-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.start-camera-btn {
+  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 50px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(35, 134, 54, 0.4);
+  min-width: 200px;
+  border: 1px solid rgba(88, 166, 255, 0.2);
+}
+
+.start-camera-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(35, 134, 54, 0.6);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+}
+
+.start-camera-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.test-camera-btn {
+  background: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(88, 166, 255, 0.3);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+}
+
+.test-camera-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(88, 166, 255, 0.4);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+}
+
+.camera-count {
+  color: #8b949e;
+  font-size: 0.9rem;
+  margin: 0;
+  font-weight: 300;
+}
+
+.camera-info-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.camera-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.camera-item {
+  background: rgba(88, 166, 255, 0.1);
+  color: #58a6ff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(88, 166, 255, 0.2);
+}
+
+.error-message {
+  background: rgba(248, 81, 73, 0.1);
+  color: #f85149;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  font-size: 0.9rem;
+  max-width: 400px;
+  backdrop-filter: blur(10px);
+}
+
+/* Camera View Styles */
+.camera-view {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.camera-video {
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1); /* Mirror effect for selfie camera */
+  background-color: #000;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.camera-controls {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  display: flex;
+  gap: 1rem;
+  z-index: 10000;
+}
+
+.switch-camera-btn,
+.stop-camera-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.switch-camera-btn:hover,
+.stop-camera-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.stop-camera-btn {
+  background: rgba(255, 107, 107, 0.8);
+}
+
+.stop-camera-btn:hover {
+  background: rgba(255, 107, 107, 1);
+}
+
+.camera-info {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.fps-info {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.detection-count {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Detection overlay */
+.detection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.detection-box {
+  position: absolute;
+  border: 2px solid #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 4px;
+}
+
+.detection-label {
+  position: absolute;
+  top: -25px;
+  left: 0;
+  background: #10b981;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Processing controls */
+.processing-btn,
+.stop-processing-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.processing-btn.active {
+  background: rgba(16, 185, 129, 0.8);
+  animation: pulse 1s infinite;
+}
+
+.stop-processing-btn {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.processing-btn:hover,
+.stop-processing-btn:hover {
+  transform: scale(1.1);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .home-screen {
+    padding: 1rem;
+  }
+  
+  .logo h1 {
+    font-size: 3rem;
+  }
+  
+  .logo p {
+    font-size: 1.2rem;
+  }
+  
+  .start-camera-btn {
+    font-size: 1rem;
+    padding: 0.8rem 1.5rem;
+    min-width: 180px;
+  }
+  
+  .camera-controls {
+    top: 1rem;
+    right: 1rem;
+  }
+  
+  .switch-camera-btn,
+  .stop-camera-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+  
+  .camera-info {
+    bottom: 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo h1 {
+    font-size: 2.5rem;
+  }
+  
+  .logo p {
+    font-size: 1rem;
+  }
+  
+  .start-camera-btn {
+    font-size: 0.9rem;
+    padding: 0.7rem 1.2rem;
+    min-width: 160px;
+  }
+}
