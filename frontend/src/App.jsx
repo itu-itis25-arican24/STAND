@@ -88,7 +88,7 @@ function App() {
         video: {
           width: { ideal: 640, max: 1920 },
           height: { ideal: 480, max: 1080 },
-          frameRate: { ideal: 30, max: 60 }
+          frameRate: { ideal: 60, max: 60 }
         }
       }
       
@@ -199,7 +199,7 @@ function App() {
         video: {
           width: { ideal: 1920, max: 1920 },
           height: { ideal: 1080, max: 1080 },
-          frameRate: { ideal: 30, max: 60 }
+          frameRate: { ideal: 60, max: 60 }
         }
       }
       
@@ -243,6 +243,13 @@ function App() {
           videoRef.current.onloadedmetadata = () => {
             console.log('Video metadata loaded, starting play')
             videoRef.current.play().catch(console.error)
+          }
+          
+          // Kamera çökme önleme için error handler
+          videoRef.current.onerror = (e) => {
+            console.error('Video element error:', e)
+            setError('Kamera hatası oluştu. Lütfen tekrar deneyin.')
+            stopCamera()
           }
         } else {
           console.log('Video ref or stream not available:', { videoRef: videoRef.current, stream })
@@ -306,7 +313,7 @@ function App() {
           video: {
             width: { ideal: 1920, max: 1920 },
             height: { ideal: 1080, max: 1080 },
-            frameRate: { ideal: 30, max: 60 }
+            frameRate: { ideal: 60, max: 60 }
           }
         }
         
@@ -343,6 +350,13 @@ function App() {
           videoRef.current.srcObject = stream
           videoRef.current.onloadedmetadata = () => {
             videoRef.current.play().catch(console.error)
+          }
+          
+          // Kamera çökme önleme için error handler
+          videoRef.current.onerror = (e) => {
+            console.error('Video element error during camera switch:', e)
+            setError('Kamera değiştirme sırasında hata oluştu.')
+            stopCamera()
           }
         }
       } catch (err) {
@@ -402,7 +416,7 @@ function App() {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 3000, // Reduced timeout to 3 seconds
+        timeout: 5000, // Increased timeout for 3 FPS processing
       })
       
       console.log('Backend response:', response.data)
@@ -443,13 +457,13 @@ function App() {
   const startProcessing = useCallback(() => {
     if (processingIntervalRef.current) return
     
-    // Reduced FPS to 10 for better performance and reduced server load
+    // 3 FPS for optimal performance
     processingIntervalRef.current = setInterval(async () => {
       const frameBlob = await captureFrame()
       if (frameBlob) {
         await sendFrameToBackend(frameBlob)
       }
-    }, 1000 / 10) // 10 FPS instead of 30 FPS
+    }, 1000 / 3) // 3 FPS
   }, [captureFrame, sendFrameToBackend])
 
   const stopProcessing = useCallback(() => {

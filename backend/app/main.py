@@ -183,7 +183,7 @@ async def get_model_info():
     return {
         "model_name": "YOLOv8n",
         "input_size": "640x640",
-        "target_fps": 30,
+        "target_fps": 3,
         "classes": list(model.names.values()),
         "total_classes": len(model.names),
         "description": "YOLOv8n object detection model"
