@@ -443,13 +443,13 @@ function App() {
   const startProcessing = useCallback(() => {
     if (processingIntervalRef.current) return
     
-    // Reduced FPS to 10 for better performance and reduced server load
+    // Reduced FPS to 3 for better performance and reduced server load
     processingIntervalRef.current = setInterval(async () => {
       const frameBlob = await captureFrame()
       if (frameBlob) {
         await sendFrameToBackend(frameBlob)
       }
-    }, 1000 / 10) // 10 FPS instead of 30 FPS
+    }, 1000 / 3) // 3 FPS - safe for rate limits
   }, [captureFrame, sendFrameToBackend])
 
   const stopProcessing = useCallback(() => {
