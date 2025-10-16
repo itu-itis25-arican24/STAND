@@ -49,6 +49,8 @@ app.add_middleware(
         "http://0.0.0.0:5173",
         "https://localhost:5173",
         "https://127.0.0.1:5173",
+        "https://localhost",
+        "https://127.0.0.1",
         # Add specific IP ranges for local development only
         "http://192.168.1.1:5173",
         "http://192.168.0.1:5173",
