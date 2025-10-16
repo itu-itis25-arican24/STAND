@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Dict, List
 import io
@@ -8,6 +9,7 @@ from PIL import Image
 import time
 import os
 import logging
+import threading
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -26,6 +28,33 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
+
+# Basit işlem limiti sistemi
+MAX_ACTIVE_PROCESSING = 1  # Test için maksimum 1 kişi aynı anda işlem yapabilir
+current_processing_count = 0
+processing_lock = threading.Lock()
+active_users = set()  # Aktif kullanıcıları takip et
+user_last_seen = {}  # Kullanıcıların son görülme zamanları
+
+def cleanup_inactive_users():
+    """Aktif olmayan kullanıcıları temizle"""
+    global current_processing_count, active_users, user_last_seen
+    current_time = time.time()
+    
+    with processing_lock:
+        inactive_users = []
+        for user_id in list(active_users):
+            last_seen = user_last_seen.get(user_id, 0)
+            # 5 saniye boyunca detect isteği gelmemişse kullanıcıyı temizle
+            # Detect istekleri 1.3 FPS'de geliyor, 5 saniye güvenli
+            if current_time - last_seen > 5:
+                inactive_users.append(user_id)
+        
+        for user_id in inactive_users:
+            active_users.discard(user_id)
+            user_last_seen.pop(user_id, None)
+            current_processing_count = max(0, current_processing_count - 1)
+            logger.info(f"Cleaned up inactive user {user_id}. Current count: {current_processing_count}")
 
 app = FastAPI(
     title="STAND Backend API",
@@ -150,6 +179,98 @@ async def hello(request: Request):
         status="success"
     )
 
+
+@app.post("/api/start-processing")
+@limiter.limit("360/minute")
+async def start_processing(request: Request):
+    """İşlem başlatma endpoint'i"""
+    global current_processing_count, active_users, user_last_seen
+    
+    # Kullanıcı ID'sini oluştur (IP + User-Agent hash)
+    client_ip = request.headers.get("x-forwarded-for", request.client.host)
+    user_agent = request.headers.get("user-agent", "")
+    user_id = f"{client_ip}_{hash(user_agent) % 10000}"
+    
+    # Önce aktif olmayan kullanıcıları temizle
+    cleanup_inactive_users()
+    
+    with processing_lock:
+        # Eğer kullanıcı zaten aktifse, count'u değiştirme
+        if user_id in active_users:
+            user_last_seen[user_id] = time.time()  # Son görülme zamanını güncelle
+            return {
+                "status": "already_active",
+                "message": "User already processing",
+                "current_count": current_processing_count,
+                "max_limit": MAX_ACTIVE_PROCESSING
+            }
+        
+        if current_processing_count >= MAX_ACTIVE_PROCESSING:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Service at capacity",
+                    "message": "Maximum processing limit reached. Please wait.",
+                    "current_count": current_processing_count,
+                    "max_limit": MAX_ACTIVE_PROCESSING
+                }
+            )
+        
+        current_processing_count += 1
+        active_users.add(user_id)
+        user_last_seen[user_id] = time.time()
+        logger.info(f"Processing started for user {user_id}. Current count: {current_processing_count}")
+        
+        return {
+            "status": "success",
+            "message": "Processing started",
+            "current_count": current_processing_count,
+            "max_limit": MAX_ACTIVE_PROCESSING
+        }
+
+@app.post("/api/stop-processing")
+@limiter.limit("360/minute")
+async def stop_processing(request: Request):
+    """İşlem durdurma endpoint'i"""
+    global current_processing_count, active_users, user_last_seen
+    
+    # Kullanıcı ID'sini oluştur (IP + User-Agent hash)
+    client_ip = request.headers.get("x-forwarded-for", request.client.host)
+    user_agent = request.headers.get("user-agent", "")
+    user_id = f"{client_ip}_{hash(user_agent) % 10000}"
+    
+    with processing_lock:
+        # Eğer kullanıcı aktifse, count'u azalt
+        if user_id in active_users:
+            current_processing_count -= 1
+            active_users.remove(user_id)
+            user_last_seen.pop(user_id, None)
+            logger.info(f"Processing stopped for user {user_id}. Current count: {current_processing_count}")
+        else:
+            logger.info(f"User {user_id} was not active, no count change")
+        
+        return {
+            "status": "success",
+            "message": "Processing stopped",
+            "current_count": current_processing_count,
+            "max_limit": MAX_ACTIVE_PROCESSING
+        }
+
+@app.get("/api/processing-status")
+@limiter.limit("360/minute")
+async def get_processing_status(request: Request):
+    """İşlem durumu endpoint'i"""
+    # Aktif olmayan kullanıcıları temizle
+    cleanup_inactive_users()
+    
+    return {
+        "current_count": current_processing_count,
+        "max_limit": MAX_ACTIVE_PROCESSING,
+        "is_available": current_processing_count < MAX_ACTIVE_PROCESSING,
+        "timestamp": time.time()
+    }
+
+
 def yolo_object_detection(image: Image.Image) -> List[Detection]:
     """YOLO object detection"""
     # Run YOLO inference
@@ -182,6 +303,12 @@ async def detect_objects(request: Request, file: UploadFile = File(...)):
     """Detect objects in uploaded image using YOLO"""
     try:
         start_time = time.time()
+        
+        # Kullanıcı ID'sini oluştur ve son görülme zamanını güncelle
+        client_ip = request.headers.get("x-forwarded-for", request.client.host)
+        user_agent = request.headers.get("user-agent", "")
+        user_id = f"{client_ip}_{hash(user_agent) % 10000}"
+        user_last_seen[user_id] = time.time()
         
         # Enhanced file validation
         if not file.filename:

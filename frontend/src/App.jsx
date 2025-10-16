@@ -11,6 +11,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [fps, setFps] = useState(0)
   const [currentFacingMode, setCurrentFacingMode] = useState('user')
+  const [processingStatus, setProcessingStatus] = useState(null)
+  const [isProcessingAllowed, setIsProcessingAllowed] = useState(true)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const canvasRef = useRef(null)
@@ -32,6 +34,26 @@ function App() {
     
     // Get available cameras when component mounts
     getAvailableCameras()
+  }, [])
+
+  // Processing status monitoring - 10 saniyede bir kontrol et
+  useEffect(() => {
+    const fetchProcessingStatus = async () => {
+      try {
+        const response = await axios.get('/api/processing-status')
+        const data = response.data
+        setProcessingStatus(data)
+        setIsProcessingAllowed(data.is_available)
+      } catch (error) {
+        console.error('Failed to fetch processing status:', error)
+      }
+    }
+
+    // 10 saniyede bir kontrol et (dakikada 6 istek)
+    const interval = setInterval(fetchProcessingStatus, 10000)
+    fetchProcessingStatus() // Initial fetch
+
+    return () => clearInterval(interval)
   }, [])
 
   // Prevent body scroll when camera is open
@@ -62,6 +84,11 @@ function App() {
         streamRef.current.getTracks().forEach(track => track.stop())
         streamRef.current = null
       }
+      
+      // Backend'e işlem durdurma isteği gönder (async olmadan)
+      axios.post('/api/stop-processing')
+        .then(() => console.log('Processing stopped on component unmount'))
+        .catch(error => console.error('Failed to stop processing on unmount:', error))
       
       // Restore body scroll
       document.body.style.overflow = 'auto'
@@ -255,11 +282,21 @@ function App() {
     }
   }
 
-  const stopCamera = () => {
+  const stopCamera = async () => {
     // Stop processing first
     if (processingIntervalRef.current) {
       clearInterval(processingIntervalRef.current)
       processingIntervalRef.current = null
+    }
+    
+    // Backend'e işlem durdurma isteği gönder
+    try {
+      await axios.post('/api/stop-processing')
+      console.log('Processing stopped on camera close')
+      // Hemen state'i güncelle
+      setIsProcessingAllowed(true)
+    } catch (error) {
+      console.error('Failed to stop processing on camera close:', error)
     }
     
     // Stop camera stream
@@ -440,25 +477,56 @@ function App() {
     }
   }, [isProcessing])
 
-  const startProcessing = useCallback(() => {
+  const startProcessing = useCallback(async () => {
     if (processingIntervalRef.current) return
     
-    // Reduced FPS to 3 for better performance and reduced server load
+    // Backend'e işlem başlatma isteği gönder
+    try {
+      const response = await axios.post('/api/start-processing')
+      if (response.data.status === 'success') {
+        console.log('Processing started successfully')
+        // Hemen state'i güncelle
+        setIsProcessingAllowed(false)
+      } else if (response.data.status === 'already_active') {
+        console.log('User already processing, no state change needed')
+        // Kullanıcı zaten aktifse state'i değiştirme
+        return
+      }
+    } catch (error) {
+      if (error.response?.status === 429) {
+        setError('Servis şu anda dolu. Lütfen daha sonra tekrar deneyin.')
+        return
+      }
+      console.error('Failed to start processing:', error)
+      return
+    }
+    
+    // Reduced FPS to 1.3 for better performance and reduced server load
     processingIntervalRef.current = setInterval(async () => {
       const frameBlob = await captureFrame()
       if (frameBlob) {
         await sendFrameToBackend(frameBlob)
       }
-    }, 1000 / 3) // 3 FPS - safe for rate limits
+    }, 1000 / 1.3) // 1.3 FPS - safe for rate limits
   }, [captureFrame, sendFrameToBackend])
 
-  const stopProcessing = useCallback(() => {
+  const stopProcessing = useCallback(async () => {
     if (processingIntervalRef.current) {
       clearInterval(processingIntervalRef.current)
       processingIntervalRef.current = null
     }
     setDetections([])
     setFps(0)
+    
+    // Backend'e işlem durdurma isteği gönder
+    try {
+      await axios.post('/api/stop-processing')
+      console.log('Processing stopped successfully')
+      // Hemen state'i güncelle
+      setIsProcessingAllowed(true)
+    } catch (error) {
+      console.error('Failed to stop processing:', error)
+    }
   }, [])
 
   if (showCamera) {
@@ -530,7 +598,8 @@ function App() {
           <button 
             onClick={startProcessing}
             className={`processing-btn ${isProcessing ? 'active' : ''}`}
-            title="Nesne Algılamayı Başlat"
+            title={isProcessingAllowed ? "Nesne Algılamayı Başlat" : "Servis dolu - bekleyin"}
+            disabled={!isProcessingAllowed}
           >
             🤖
           </button>
@@ -589,6 +658,22 @@ function App() {
             <p>Kamera Uygulaması</p>
           </div>
         </div>
+
+        {/* Processing Status Warning */}
+        {processingStatus && !isProcessingAllowed && (
+          <div className="processing-warning">
+            <div className="warning-content">
+              <div className="warning-icon">⚠️</div>
+              <div className="warning-text">
+                <h3>Servis Yoğunluğu</h3>
+                <p>
+                  Şu anda {processingStatus.current_count}/{processingStatus.max_limit} kişi işlem yapıyor.
+                  Lütfen bekleyin.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="start-section">
           <button 
