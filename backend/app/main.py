@@ -58,22 +58,31 @@ async def add_security_headers(request: Request, call_next):
 
 # Initialize YOLO model
 print("Loading YOLOv8n model...")
+import os
+
+# Model dosyası için volume path
+MODEL_PATH = '/app/models/yolov8n.pt'
+os.makedirs('/app/models', exist_ok=True)
+
 try:
-    # Try to load existing model
-    model = YOLO('yolov8n.pt')
-    print("YOLO model loaded from cache successfully!")
+    # Önce volume'da model var mı kontrol et
+    if os.path.exists(MODEL_PATH):
+        print(f"Loading model from volume: {MODEL_PATH}")
+        model = YOLO(MODEL_PATH)
+        print("YOLO model loaded from volume successfully!")
+    else:
+        print("Model not found in volume, downloading...")
+        # Model dosyasını indir ve volume'a kaydet
+        model = YOLO('yolov8n.pt')
+        # Model dosyasını volume'a kopyala
+        import shutil
+        shutil.copy('yolov8n.pt', MODEL_PATH)
+        print(f"YOLO model downloaded and saved to volume: {MODEL_PATH}")
 except Exception as e:
-    print(f"Model not found in cache: {e}")
-    print("Downloading YOLOv8n model...")
-    try:
-        # Download model if not exists
-        model = YOLO('yolov8n.pt')
-        print("YOLO model downloaded and loaded successfully!")
-    except Exception as download_error:
-        print(f"Failed to download model: {download_error}")
-        # Fallback to pretrained model
-        model = YOLO('yolov8n.pt')
-        print("YOLO model loaded with fallback method!")
+    print(f"Error loading model: {e}")
+    # Fallback: direkt YOLO kullan
+    model = YOLO('yolov8n.pt')
+    print("YOLO model loaded with fallback method!")
 
 # CORS middleware for frontend communication - SECURE CONFIGURATION
 app.add_middleware(

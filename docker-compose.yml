@@ -9,10 +9,15 @@ services:
     environment:
       - PYTHONPATH=/app
     volumes:
-      - ./backend/app:/app/app
+      # Read-only mount - container host dosyalarına yazamaz
+      - ./backend/app:/app/app:ro
+      # YOLO model dosyaları için kalıcı volume
+      - yolo_models:/app/models
     networks:
       - stand-network
     restart: unless-stopped
+    # Root user - model dosyasını volume'a yazabilmek için
+    user: "0:0"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -42,3 +47,7 @@ services:
 networks:
   stand-network:
     driver: bridge
+
+volumes:
+  yolo_models:
+    driver: local
