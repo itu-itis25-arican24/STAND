@@ -18,6 +18,16 @@ services:
     restart: unless-stopped
     # Non-root user for security - model already exists in volume
     user: "1000:1000"
+    # Capability dropping to prevent container escape
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    # Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -43,6 +53,16 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    # Capability dropping for frontend security
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    # Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   stand-network:
