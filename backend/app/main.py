@@ -1,11 +1,17 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Dict, List
 import io
 from PIL import Image
 import time
 import os
+import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Set environment for headless operation before importing YOLO
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
@@ -13,55 +19,77 @@ os.environ['MPLBACKEND'] = 'Agg'
 
 # YOLO import
 from ultralytics import YOLO
-print("YOLO successfully imported!")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="STAND Backend API",
     description="FastAPI backend for STAND application with Object Detection",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=None,  # Disable Swagger UI in production
+    redoc_url=None  # Disable ReDoc in production
 )
 
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add trusted host middleware
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["localhost", "127.0.0.1", "*.ngrok.io", "*.ngrok-free.app"]
+)
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    return response
+
 # Initialize YOLO model
-print("Loading YOLOv8n model...")
+logger.info("Loading YOLOv8n model...")
 try:
     # Try to load existing model
     model = YOLO('yolov8n.pt')
-    print("YOLO model loaded from cache successfully!")
+    logger.info("YOLO model loaded successfully!")
 except Exception as e:
-    print(f"Model not found in cache: {e}")
-    print("Downloading YOLOv8n model...")
+    logger.error(f"Model loading failed: {str(e)}")
     try:
         # Download model if not exists
         model = YOLO('yolov8n.pt')
-        print("YOLO model downloaded and loaded successfully!")
+        logger.info("YOLO model downloaded and loaded successfully!")
     except Exception as download_error:
-        print(f"Failed to download model: {download_error}")
+        logger.error(f"Failed to download model: {str(download_error)}")
         # Fallback to pretrained model
         model = YOLO('yolov8n.pt')
-        print("YOLO model loaded with fallback method!")
+        logger.info("YOLO model loaded with fallback method!")
 
-# CORS middleware for frontend communication
+# CORS middleware for frontend communication - SECURE CONFIGURATION
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "http://0.0.0.0:5173",
-        "https://localhost:5173",
-        "https://127.0.0.1:5173",
+        # Local development only
         "https://localhost",
         "https://127.0.0.1",
-        # Telefon erişimi için IP adresi
+        # Local network access
         "https://192.168.1.113",
-        "http://192.168.1.113",
-        # Add specific IP ranges for local development only
-        "http://192.168.1.1:5173",
-        "http://192.168.0.1:5173",
-        "http://10.0.0.1:5173",
+        # Ngrok domains (will be added dynamically)
+        "https://*.ngrok.io",
+        "https://*.ngrok-free.app",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    allow_methods=["GET", "POST", "OPTIONS"],  # Reduced methods
+    allow_headers=["Content-Type", "Authorization"],  # Reduced headers
 )
 
 # Response models
@@ -87,12 +115,14 @@ class DetectionResponse(BaseModel):
 
 
 @app.get("/", response_model=Dict[str, str])
-async def root():
+@limiter.limit("10/minute")
+async def root(request: Request):
     """Root endpoint"""
     return {"message": "Welcome to STAND Backend API"}
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+@limiter.limit("30/minute")
+async def health_check(request: Request):
     """Health check endpoint"""
     return HealthResponse(
         status="healthy",
@@ -100,7 +130,8 @@ async def health_check():
     )
 
 @app.get("/api/hello", response_model=HelloResponse)
-async def hello():
+@limiter.limit("20/minute")
+async def hello(request: Request):
     """Example API endpoint"""
     return HelloResponse(
         message="Hello from FastAPI backend!",
@@ -134,38 +165,62 @@ def yolo_object_detection(image: Image.Image) -> List[Detection]:
 
 
 @app.post("/api/detect", response_model=DetectionResponse)
-async def detect_objects(file: UploadFile = File(...)):
+@limiter.limit("5/minute")  # Strict rate limiting for AI processing
+async def detect_objects(request: Request, file: UploadFile = File(...)):
     """Detect objects in uploaded image using YOLO"""
     try:
         start_time = time.time()
+        
+        # Enhanced file validation
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        # Validate file extension
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
+        file_ext = os.path.splitext(file.filename.lower())[1]
+        if file_ext not in allowed_extensions:
+            raise HTTPException(status_code=400, detail="Invalid file type. Only image files are allowed")
         
         # Validate file type
         if not file.content_type or not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="Only image files are allowed")
         
-        # Read and validate file size (max 2MB)
+        # Read and validate file size (max 1MB for security)
         contents = await file.read()
-        if len(contents) > 2 * 1024 * 1024:  # 2MB limit for better performance
-            raise HTTPException(status_code=413, detail="File size too large. Maximum 2MB allowed")
+        if len(contents) > 1 * 1024 * 1024:  # 1MB limit
+            raise HTTPException(status_code=413, detail="File size too large. Maximum 1MB allowed")
+        
+        if len(contents) < 100:  # Minimum file size
+            raise HTTPException(status_code=400, detail="File too small")
         
         # Validate and decode image
         try:
             image = Image.open(io.BytesIO(contents))
+            # Validate image dimensions
+            if image.width > 4096 or image.height > 4096:
+                raise HTTPException(status_code=400, detail="Image dimensions too large")
+            if image.width < 32 or image.height < 32:
+                raise HTTPException(status_code=400, detail="Image dimensions too small")
+            
             # Convert to RGB if necessary
             if image.mode != 'RGB':
                 image = image.convert('RGB')
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid image format: {str(e)}")
+            logger.warning(f"Invalid image format from {request.client.host}: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid image format")
         
         # Object detection with YOLO
         try:
             detections = yolo_object_detection(image)
         except Exception as detection_error:
-            raise HTTPException(status_code=500, detail=f"Object detection failed: {str(detection_error)}")
+            logger.error(f"Object detection failed: {str(detection_error)}")
+            raise HTTPException(status_code=500, detail="Object detection service temporarily unavailable")
         
         # Calculate processing time and FPS
         processing_time = time.time() - start_time
         fps = 1.0 / processing_time if processing_time > 0 else 0.0
+        
+        logger.info(f"Detection completed in {processing_time:.3f}s for {request.client.host}")
         
         return DetectionResponse(
             detections=detections,
@@ -179,20 +234,10 @@ async def detect_objects(file: UploadFile = File(...)):
         raise
     except Exception as e:
         # Handle unexpected errors
-        print(f"Unexpected error in detect_objects: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error occurred during image processing")
+        logger.error(f"Unexpected error in detect_objects from {request.client.host}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/api/model_info")
-async def get_model_info():
-    """Get information about the detection model"""
-    return {
-        "model_name": "YOLOv8n",
-        "input_size": "640x640",
-        "target_fps": 3,
-        "classes": list(model.names.values()),
-        "total_classes": len(model.names),
-        "description": "YOLOv8n object detection model"
-    }
+# Model info endpoint removed for security reasons
 
 if __name__ == "__main__":
     import uvicorn
