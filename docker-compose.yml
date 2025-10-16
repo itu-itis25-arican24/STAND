@@ -16,8 +16,8 @@ services:
     networks:
       - stand-network
     restart: unless-stopped
-    # Root user - model dosyasını volume'a yazabilmek için
-    user: "0:0"
+    # Non-root user for security - model already exists in volume
+    user: "1000:1000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
