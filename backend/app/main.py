@@ -51,6 +51,9 @@ app.add_middleware(
         "https://127.0.0.1:5173",
         "https://localhost",
         "https://127.0.0.1",
+        # Telefon erişimi için IP adresi
+        "https://192.168.1.113",
+        "http://192.168.1.113",
         # Add specific IP ranges for local development only
         "http://192.168.1.1:5173",
         "http://192.168.0.1:5173",
