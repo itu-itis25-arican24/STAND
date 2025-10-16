@@ -598,9 +598,16 @@ function App() {
     <div className="app">
       <div className="home-screen">
         <div className="logo-section">
+          <div className="team-logo-container">
+            <img 
+              src="/team-logo.png" 
+              alt="Team Logo" 
+              className="team-logo"
+            />
+          </div>
           <div className="logo">
-            <h1>📸 STAND</h1>
-            <p>Kamera Uygulaması</p>
+            <h1>VCAMP</h1>
+            <p>Görüntü İşleme</p>
           </div>
         </div>
 

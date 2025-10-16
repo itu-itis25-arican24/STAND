@@ -40,6 +40,69 @@
 
 .logo-section {
   margin-bottom: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.team-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background: transparent;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.team-logo-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(88, 166, 255, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.team-logo {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  background: transparent;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  transition: all 0.3s ease;
+  animation: logoGlow 4s ease-in-out infinite;
+}
+
+.team-logo:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 6px 12px rgba(88, 166, 255, 0.4));
+}
+
+@keyframes logoGlow {
+  0%, 100% { 
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  }
+  50% { 
+    filter: drop-shadow(0 4px 8px rgba(88, 166, 255, 0.2));
+  }
+}
+
+.logo h1 {
+  font-size: 4rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(45deg, #58a6ff, #7c3aed, #06b6d4, #10b981);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease-in-out infinite;
+  text-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
 }
 
 .logo h1 {
@@ -332,6 +395,15 @@
     padding: 1rem;
   }
   
+  .team-logo-container {
+    padding: 1.5rem;
+  }
+  
+  .team-logo {
+    width: 120px;
+    height: 120px;
+  }
+  
   .logo h1 {
     font-size: 3rem;
   }
@@ -365,6 +437,15 @@
 }
 
 @media (max-width: 480px) {
+  .team-logo-container {
+    padding: 1rem;
+  }
+  
+  .team-logo {
+    width: 100px;
+    height: 100px;
+  }
+  
   .logo h1 {
     font-size: 2.5rem;
   }
