@@ -11,6 +11,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [fps, setFps] = useState(0)
   const [currentFacingMode, setCurrentFacingMode] = useState('user')
+  const [controlsExpanded, setControlsExpanded] = useState(true)
+  const [isMirrored, setIsMirrored] = useState(true)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const canvasRef = useRef(null)
@@ -489,7 +491,7 @@ function App() {
             height: '100%', 
             objectFit: 'cover',
             backgroundColor: '#000',
-            transform: currentFacingMode === 'user' ? 'scaleX(-1)' : 'none'
+            transform: isMirrored ? 'scaleX(-1)' : 'none'
           }}
           onLoadedMetadata={() => {
             console.log('Video metadata loaded, ready for processing')
@@ -540,43 +542,67 @@ function App() {
           })}
         </div>
         
-        <div className="camera-controls">
+        <div className={`camera-controls-bar ${controlsExpanded ? 'expanded' : 'collapsed'}`}>
           <button 
-            onClick={startProcessing}
-            className={`processing-btn ${isProcessing ? 'active' : ''}`}
-            title="Nesne Algılamayı Başlat"
+            onClick={() => setControlsExpanded(!controlsExpanded)}
+            className="toggle-controls-btn"
+            title={controlsExpanded ? "Küçült" : "Genişlet"}
           >
-            🤖
+            {controlsExpanded ? (
+              <span>⋯</span>
+            ) : (
+              <img src="/AI-logo.png" alt="Menu" className="toggle-ai-logo" />
+            )}
           </button>
           
-          <button 
-            onClick={stopProcessing}
-            className="stop-processing-btn"
-            title="Nesne Algılamayı Durdur"
-          >
-            ⏹️
-          </button>
-          
-          {cameras.length > 1 && (
-            <button 
-              onClick={switchCamera}
-              className="switch-camera-btn"
-              title="Kamerayı Değiştir"
-            >
-              🔄
-            </button>
+          {controlsExpanded && (
+            <>
+              <button 
+                onClick={startProcessing}
+                className={`control-btn processing-btn ${isProcessing ? 'active' : ''}`}
+                title="Nesne Algılamayı Başlat"
+              >
+                <span className="control-emoji">▶</span>
+              </button>
+              
+              <button 
+                onClick={stopProcessing}
+                className="control-btn stop-processing-btn"
+                title="Nesne Algılamayı Durdur"
+              >
+                <span className="control-emoji">⏸</span>
+              </button>
+              
+              <button id="stop-camera-btn"
+                onClick={() => {
+                  stopProcessing()
+                  stopCamera()
+                }}
+                className="control-btn stop-camera-btn"
+                title="Kamerayı Kapat"
+              >
+                <span className="control-emoji">⏹</span>
+              </button>
+              
+              <button 
+                onClick={() => setIsMirrored(!isMirrored)}
+                className="control-btn mirror-btn"
+                title="Kamerayı Aynala"
+              >
+                <img src="/download-removebg-preview.png" alt="Aynala" className="control-icon mirror-icon" width={30} height={30} />
+              </button>
+              
+              {cameras.length > 1 && (
+                <button id="switch-camera-btn"
+                  onClick={switchCamera}
+                  className="control-btn switch-camera-btn"
+                  title="Kamerayı Değiştir"
+                >
+                  <span className="control-emoji">🔄</span>
+                </button>
+              )}
+            </>
           )}
-          
-          <button 
-            onClick={() => {
-              stopProcessing()
-              stopCamera()
-            }}
-            className="stop-camera-btn"
-            title="Kamerayı Kapat"
-          >
-            ✕
-          </button>
         </div>
         
         <div className="camera-info">
@@ -612,19 +638,19 @@ function App() {
         </div>
 
         <div className="start-section">
-          <button 
+          <button id="start-camera-btn"
             onClick={startCamera}
             className="start-camera-btn"
             disabled={cameras.length === 0}
           >
-            📷 Kamerayı Başlat
+            Kamerayı Başlat
           </button>
           
-          <button 
+          <button id="test-camera-btn"
             onClick={getAvailableCameras}
             className="test-camera-btn"
           >
-            🔍 Kameraları Test Et
+            Kameraları Test Et
           </button>
           
           {cameras.length > 0 ? (
